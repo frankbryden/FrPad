@@ -1,0 +1,278 @@
+<html>
+
+<head>
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css">
+
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <!-- Popper JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="game.css">
+
+    <style>
+        #playArea {
+            display: None;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card" id="waitingArea">
+            <div class="col-md-2">
+                <strong>
+                    <h2>Lobby</h2>
+                </strong>
+            </div>
+            <div id="lobby" class="card-columns"></div>
+            <button type="button" id="startGameBtn" class="btn btn-primary disabled">Start Game</button>
+        </div>
+        <div id="countdownArea">
+            <div class="text-center">
+                <h1>
+                    <strong id="countdown"></strong>
+                </h1>
+            </div>
+        </div>
+        <div class="card" id="playArea">
+            <div class="row">
+                <div class="col-md-2">
+                    <div class="mx-auto">
+                        <strong>
+                            <h2>Let's Play !</h3>
+                        </strong>
+                    </div>
+                </div>
+            </div>
+            <div class="card-columns">
+
+                <div class="game-item card bg-success text-center">
+                    <h3>Paris</h3>
+                </div>
+                <div class="game-item card bg-info text-center">
+                    <h3>Berlin</h3>
+                </div>
+                <div class="game-item card bg-secondary text-center">
+                    <h3>Rome</h3>
+                </div>
+                <div class="game-item card bg-danger text-center">
+                    <h3>London</h3>
+                </div>
+
+            </div>
+            <div class="row">
+                    <div class="col-md-2">
+                        <div class="mx-auto">
+                            <strong>
+                                <h2>Player Progress</h3>
+                            </strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-columns" id="playerProgressColumns">
+    
+                </div>
+        </div>
+        <div class="card" id="playerProgressArea">
+            <div class="row">
+                <div class="col-md-2">
+                    <div class="mx-auto">
+                        <strong>
+                            <h2>Player Progress</h3>
+                        </strong>
+                    </div>
+                </div>
+            </div>
+            <div class="card-columns" id="endOfRoundPlayerProgressColumns">
+
+            </div>
+        </div>
+        <div id="roundEndArea">
+            <div class="text-center">
+                <h1>End of Round !</h1>
+            </div>
+        </div>
+    </div>
+    <script>
+        var socket = io.connect();
+        var $lobbyUsers = $("#lobby");
+        var $startGameBtn = $("#startGameBtn");
+        var $countdown = $("#countdown");
+        var $playerProgressColumns = $("#playerProgressColumns");
+        var users = [];
+        var stack = [0, 0, 1, 1, 0, 2, 2];
+        var pattern = [];
+        var items = [];
+
+        var $countdownArea = $("#countdownArea");
+        var $playArea = $("#playArea");
+        var $waitingArea = $("#waitingArea");
+        var $playerProgressArea = $("#playerProgressArea");
+        var $roundEndArea = $("#roundEndArea");
+
+        switchToLobbyArea();
+
+        var i = 0;
+
+        $(".game-item").each(function () {
+            items.push(this);
+            var origColour = getRGBValues($(this).css("background-color"));
+            var darker = Object.assign({}, origColour);
+            darker.r += 50;
+            darker.g += 50;
+            darker.b += 50;
+            $(this).mouseenter(function () {
+                $(this).css("cssText", "background-color : rgb(" + darker.r + ", " + darker.g + ", " + darker.b + ") !important");
+            }).mouseleave(function () {
+                $(this).css("cssText", "background-color:" + origColour.rgb + " !important");
+            });
+            console.log(origColour);
+            console.log(darker);
+        });
+
+        $startGameBtn.click(function () {
+            socket.emit("start game");
+            switchToCountdown();
+            countDown(3);
+        });
+
+        console.log(items);
+
+
+
+        console.log("Display has established connection with server");
+
+        socket.emit("display");
+
+        socket.on("users", function (data) {
+            var html = "";
+            for (var name of data["users"]) {
+                html += "<div class=\"card bg-success text-center\"><h2>" + name + "</h2></div>";
+            }
+            if (data["users"].length > 0) {
+                $startGameBtn.removeClass("disabled");
+            } else {
+                $startGameBtn.addClass("disabled");
+            }
+            $lobbyUsers.html(html);
+        });
+
+        socket.on("play pattern", function (data) {
+            console.log("Server requested we play the pattern");
+            console.log(data);
+            switchToPlayArea();
+            var i = 0;
+            pattern = data;
+            for (var el of data) {
+                setFlashDelay(el, 2000 + 1000 * i);
+                i++;
+            }
+            setTimeout(function () {
+                socket.emit("pattern played")
+            }, (i + 2) * 1000 + 50);
+        });
+
+        socket.on("player scores", function (players) {
+            updatePlayerProgress(players);
+        });
+
+        socket.on("round end", function () {
+            switchToRoundEndArea();
+        });
+
+        socket.on("next round", function(data){
+            switchToCountdown();
+            countDown(3);
+        })
+
+        function switchToLobbyArea(){
+            hideAll();
+            $waitingArea.show();
+        }
+
+        function switchToCountdown() {
+            hideAll();
+            $countdownArea.show();
+        }
+
+        function switchToPlayArea() {
+            hideAll();
+            $playArea.show();
+        }
+
+        function switchToRoundEndArea(){
+            hideAll();
+            $playArea.show();
+            $roundEndArea.show();
+        }
+
+        function hideAll() {
+            $waitingArea.hide();
+            $playArea.hide();
+            $countdownArea.hide();
+            $playerProgressArea.hide();
+            $roundEndArea.hide();
+        }
+
+        function updatePlayerProgress(players) {
+            var html = "";
+            for (var player of players) {
+                html += "<div class=\"card ";
+                if (player.count == pattern.length && pattern.length != 0){
+                    html += "bg-success";
+                } else if (player.lost == true) {
+                    html += "bg-danger";
+                } else {
+                    html += "bg-info";
+                }
+                html += " text-center\"><h3>" + player.username + "</h3><br><h3>" + player.count + " / " + pattern.length + "</h3></div>";
+            }
+            $playerProgressColumns.html(html);
+        }
+
+        function getRGBValues(str) {
+            var vals = str.substring(str.indexOf('(') + 1, str.length - 1).split(', ');
+            return {
+                'r': parseInt(vals[0]),
+                'g': parseInt(vals[1]),
+                'b': parseInt(vals[2]),
+                "rgb": str
+            };
+        }
+
+        function setFlashDelay(el, delay) {
+            setTimeout(function () {
+                var origColour = getRGBValues($(items[el]).css("background-color"));
+                var darker = Object.assign({}, origColour);
+                darker.r += 55;
+                darker.g += 55;
+                darker.b += 55;
+                $(items[el]).css("cssText", "background-color : rgb(" + darker.r + ", " + darker.g + ", " + darker.b + ") !important");
+                console.log("lighten element " + el + ": " + $(items[el]).children().html());
+                setTimeout(function () {
+                    console.log("restore element");
+                    $(items[el]).css("cssText", "background-color:" + origColour.rgb + " !important");
+                }, 500);
+            }, delay);
+        }
+
+        function countDown(count) {
+            if (count == 0) {
+                socket.emit("countdown done");
+                return;
+            }
+            $countdown.text(count);
+            setTimeout(function () {
+                countDown(count - 1);
+            }, 1000);
+        }
+    </script>
+</body>
+
+</html>

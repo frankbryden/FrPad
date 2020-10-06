@@ -1,0 +1,15 @@
+.game-item {
+    width: 150px;
+    height: 150px;
+    padding-top: 30px;
+}
+
+body{
+    margin-top: 50px;
+}
+
+@media (min-width: 200px) {
+    .card-columns {
+        column-count: 2;
+    }
+}

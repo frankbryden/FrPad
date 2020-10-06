@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="/socket.io/socket.io.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css">
+
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <!-- Popper JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"></script>
+
+    <!-- Latest compiled JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js"></script>
+
+    <link rel="stylesheet" href="game.css">
+
+    <style type="text/css">
+        #gameWaitArea {
+            display: none;
+        }
+
+        #playArea {
+            display: None;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div id="userFormArea" class="row">
+            <div class="col-md-12">
+                <form id="userForm">
+                    <div class="form-group">
+                        <label>Enter Username</label>
+                        <textarea class="form-control" id="comments" rows="4"></textarea>
+                        <input class="form-control" id="username">
+                        </textarea>
+                        <br />
+                        <input type="submit" class="btn btn-primary" value="Join Lobby" />
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+        var socket = io.connect();
+        var $userForm = $("#userForm");
+
+        var $commentsTextArea = $("#comments");
+
+
+        console.log("User has established connection with server");
+        socket.emit("user");
+        
+        $commentsTextArea.on("keypress", e => {
+            let char = String.fromCharCode(e.which);
+            let cursorPos = getCursorPos();
+            console.log(`Ìnsertion of ${char} at ${cursorPos}`);
+            socket.emit("insertion", {
+                pos: cursorPos,
+                char: char
+            });
+        });
+
+        $commentsTextArea.on("keydown", e => {
+            let cursorPos = getCursorPos();
+            let delPos = -1;
+            if (e.which == 8 && cursorPos > 0) {
+                console.log(`deletion at ${cursorPos - 1}`);
+                delPos = cursorPos - 1;
+            } else if (e.which == 46 && cursorPos < $commentsTextArea.val().length) {
+                console.log(`deletion at ${cursorPos}`);
+                delPos = cursorPos;
+            }
+            if (delPos > -1) {
+                socket.emit("deletion", { pos: delPos });
+            }
+
+        })
+
+        socket.on("start game", function (data) {
+            switchTo3sStart();
+        });
+        
+        socket.on("insertion", data => {
+            documentInsertion(data.pos, data.char);
+        });
+
+        socket.on("deletion", data => {
+            documentDeletion(data.pos);
+        });
+
+        function changeRandomChar() {
+            let contents = getDocumentContents;
+            let updated = replaceAt(contents, Math.floor(Math.random() * contents.length), "a");
+            let cursorPos = getCursorPos();
+
+            $commentsTextArea.val(updated);
+            $commentsTextArea.prop("selectionEnd", cursorPos);
+            //setTimeout(changeRandomChar, 1000);
+        }
+
+        function documentInsertion(pos, char) {
+            let contents = getDocumentContents();
+            let updated = contents.substr(0, pos) + char + contents.substr(pos, contents.length);
+            $commentsTextArea.val(updated);
+        }
+
+        function documentDeletion(pos) {
+            let contents = getDocumentContents();
+            let updated = contents.substr(0, pos) + contents.substr(pos + 1, contents.length);
+            $commentsTextArea.val(updated);
+        }
+        
+        function getCursorPos() {
+            return $commentsTextArea.prop("selectionEnd");
+        }
+
+        function getDocumentContents() {
+            return $commentsTextArea.val();
+        }
+
+        function replaceAt(s, index, replacement) {
+            return s.substr(0, index) + replacement + s.substr(index + replacement.length);
+        }
+    </script>
+</body>
+
+</html>
